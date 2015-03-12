@@ -555,7 +555,7 @@ static NSNumber *averageOfProperty(TableType const& table, RLMRealm *realm, NSSt
 
 - (void)deleteObjectsFromRealm {
     RLMResultsValidateInWriteTransaction(self);
-    _table->clear();
+    RLMClearTable(_objectSchema);
 }
 
 - (std::unique_ptr<Query>)cloneQuery {

@@ -18,7 +18,11 @@
 
 #import "RLMTestCase.h"
 
-#if !DEBUG
+@interface NonRLMIntObject : NSObject
+@property (nonatomic) int intCol;
+@end
+@implementation NonRLMIntObject
+@end
 
 @interface PerformanceTests : RLMTestCase
 @end
@@ -68,6 +72,7 @@ static RLMRealm *s_smallRealm, *s_mediumRealm, *s_largeRealm;
     return realm;
 }
 
+#if 0
 - (void)testInsertMultiple {
     [self measureBlock:^{
         RLMRealm *realm = self.realmWithTestPath;
@@ -486,7 +491,62 @@ static RLMRealm *s_smallRealm, *s_mediumRealm, *s_largeRealm;
         [realm removeNotification:token];
     }];
 }
+#endif
+
+- (void)testRealmKVO {
+    RLMRealm *realm = RLMRealm.defaultRealm;
+    [realm beginWriteTransaction];
+
+    IntObject *obj1 = [IntObject createInDefaultRealmWithObject:@[@5]];
+    IntObject *obj2 = [IntObject allObjects].firstObject;
+
+    [obj2 addObserver:self forKeyPath:@"intCol" options:0 context:0];
+
+    [self measureBlock:^{
+        for (int i = 0; i < 1000; ++i)
+            obj1.intCol = 10;
+    }];
+
+    [realm commitWriteTransaction];
+    [obj2 removeObserver:self forKeyPath:@"intCol"];
+}
+
+- (void)testNativeKVO {
+    NonRLMIntObject *obj = [NonRLMIntObject new];
+
+    [obj addObserver:self forKeyPath:@"intCol" options:0 context:0];
+
+    [self measureBlock:^{
+        for (int i = 0; i < 1000; ++i)
+            obj.intCol = 10;
+    }];
+
+    [obj removeObserver:self forKeyPath:@"intCol"];
+}
+
+- (void)testKvoManyObjects {
+    RLMRealm *realm = RLMRealm.defaultRealm;
+    [realm beginWriteTransaction];
+    NSMutableArray *arr = [NSMutableArray new];
+    for (int i = 0; i < 10000; ++i) {
+        [arr addObject:[IntObject createInDefaultRealmWithObject:@[@0]]];
+    }
+
+    for (IntObject *o in arr)
+        [o addObserver:self forKeyPath:@"intCol" options:NSKeyValueObservingOptionNew|NSKeyValueObservingOptionOld context:nil];
+
+    [self measureBlock:^{
+        for (int i = 0; i < 10; ++i) {
+            for (IntObject *o in arr)
+                o.intCol = 0;
+        }
+    }];
+
+    for (IntObject *o in arr)
+        [o removeObserver:self forKeyPath:@"intCol"];
+}
+
+- (void)observeValueForKeyPath:(NSString *)keyPath ofObject:(id)object change:(NSDictionary *)change context:(void *)context {
+}
 
 @end
-
-#endif
