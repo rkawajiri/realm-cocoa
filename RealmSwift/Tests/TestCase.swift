@@ -75,7 +75,7 @@ class TestCase: XCTestCase {
     }
 }
 
-internal func realmPathForFile(fileName: String) -> String {
+private func realmPathForFile(fileName: String) -> String {
     var path = Realm.defaultPath.stringByDeletingLastPathComponent
     if path.lastPathComponent != "testRealms" {
         path = path.stringByAppendingPathComponent("testRealms")
