@@ -563,6 +563,26 @@ public:
         XCTAssertEqual([note->change[NSKeyValueChangeKindKey] intValue], NSKeyValueChangeReplacement);
         XCTAssertEqualObjects(note->change[NSKeyValueChangeIndexesKey], [NSIndexSet indexSetWithIndex:0]);
     }
+
+    [mutator addObjectsFromArray:@[obj, obj]];
+    if (KVONotification *note = AssertNotification(r, 4U)) {
+        XCTAssertEqual([note->change[NSKeyValueChangeKindKey] intValue], NSKeyValueChangeInsertion);
+        XCTAssertEqualObjects(note->change[NSKeyValueChangeIndexesKey], [NSIndexSet indexSetWithIndexesInRange:NSMakeRange(1, 2)]);
+    }
+
+    [mutator removeLastObject];
+    if (KVONotification *note = AssertNotification(r, 5U)) {
+        XCTAssertEqual([note->change[NSKeyValueChangeKindKey] intValue], NSKeyValueChangeRemoval);
+        XCTAssertEqualObjects(note->change[NSKeyValueChangeIndexesKey], [NSIndexSet indexSetWithIndex:2]);
+    }
+
+    [mutator removeAllObjects];
+    if (KVONotification *note = AssertNotification(r, 6U)) {
+        XCTAssertEqual([note->change[NSKeyValueChangeKindKey] intValue], NSKeyValueChangeRemoval);
+        XCTAssertEqualObjects(note->change[NSKeyValueChangeIndexesKey], [NSIndexSet indexSetWithIndexesInRange:NSMakeRange(0, 2)]);
+    }
+
+    XCTAssertEqual(7U, r.notifications.size());
 }
 
 - (void)testIgnoredProperty {
@@ -604,11 +624,13 @@ public:
 
 // still to test:
 //   - keypaths
+//   - keypaths over rlmarray
 //   - Prior called at right time
 //   - Batch array modification
 //   - observe over array keypath
 //   - delete observed object [in middle]
 //   - observe over nil link
+//   - observe isInvalidated of RLMArray property
 @end
 
 // Run tests on a standalone RLMObject instance

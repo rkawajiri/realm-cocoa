@@ -43,6 +43,16 @@ static void changeArray(__unsafe_unretained RLMArray *const ar, NSKeyValueChange
     [ar->_parentObject didChange:kind valuesAtIndexes:is forKey:ar->_key];
 }
 
+static void changeArray(__unsafe_unretained RLMArray *const ar, NSKeyValueChange kind, NSRange index, dispatch_block_t f) {
+    NSIndexSet *is = [NSIndexSet indexSetWithIndexesInRange:index];
+    if (!ar->_backingArray) {
+        ar->_backingArray = [NSMutableArray new];
+    }
+    [ar->_parentObject willChange:kind valuesAtIndexes:is forKey:ar->_key];
+    f();
+    [ar->_parentObject didChange:kind valuesAtIndexes:is forKey:ar->_key];
+}
+
 - (instancetype)initWithObjectClassName:(NSString *)objectClassName
                            parentObject:(id)object
                                     key:(NSString *)key {
@@ -104,12 +114,6 @@ static void changeArray(__unsafe_unretained RLMArray *const ar, NSKeyValueChange
     }
 }
 
-- (void)removeAllObjects {
-    while (self.count) {
-        [self removeLastObject];
-    }
-}
-
 - (id)objectAtIndexedSubscript:(NSUInteger)index {
     return [self objectAtIndex:index];
 }
@@ -148,6 +152,15 @@ static void RLMValidateMatchingObjectType(RLMArray *array, RLMObject *object) {
     return [_backingArray countByEnumeratingWithState:state objects:buffer count:len];
 }
 
+- (void)addObjectsFromArray:(NSArray *)array {
+    for (id obj in array) {
+        RLMValidateMatchingObjectType(self, obj);
+    }
+    changeArray(self, NSKeyValueChangeInsertion, NSMakeRange(_backingArray.count, array.count), ^{
+        [_backingArray addObjectsFromArray:array];
+    });
+}
+
 - (void)insertObject:(RLMObject *)anObject atIndex:(NSUInteger)index {
     RLMValidateMatchingObjectType(self, anObject);
     changeArray(self, NSKeyValueChangeInsertion, index, ^{
@@ -178,6 +191,12 @@ static void RLMValidateMatchingObjectType(RLMArray *array, RLMObject *object) {
         index++;
     }
     return NSNotFound;
+}
+
+- (void)removeAllObjects {
+    changeArray(self, NSKeyValueChangeRemoval, NSMakeRange(0, _backingArray.count), ^{
+        [_backingArray removeAllObjects];
+    });
 }
 
 - (void)deleteObjectsFromRealm {

@@ -175,6 +175,7 @@
 		3F8DCA7219930F960008BD7F /* QueryTests.m in Sources */ = {isa = PBXBuildFile; fileRef = E81A1FC11955FE0100FDED82 /* QueryTests.m */; };
 		3F8DCA7319930F960008BD7F /* RealmTests.mm in Sources */ = {isa = PBXBuildFile; fileRef = E81A1FC31955FE0100FDED82 /* RealmTests.mm */; };
 		3F8DCA81199310D40008BD7F /* RLMTestObjects.m in Sources */ = {isa = PBXBuildFile; fileRef = E81A1FC71955FE0100FDED82 /* RLMTestObjects.m */; };
+		3FBAC0601AE708DC009DC2AA /* KVOTests.mm in Sources */ = {isa = PBXBuildFile; fileRef = 3F403E2D1ABB8987002F807A /* KVOTests.mm */; };
 		3FDCFEB619F6A8D3005E414A /* RLMSupport.swift in Sources */ = {isa = PBXBuildFile; fileRef = E88C36FF19745E5500C9963D /* RLMSupport.swift */; };
 		3FDE338C19C37E4C003B7DBA /* RLMSwiftSupport.m in Sources */ = {isa = PBXBuildFile; fileRef = 3F452EC519C2279800AFC154 /* RLMSwiftSupport.m */; };
 		3FDE338D19C39A87003B7DBA /* RLMSupport.swift in Sources */ = {isa = PBXBuildFile; fileRef = E88C36FF19745E5500C9963D /* RLMSupport.swift */; };
@@ -1388,6 +1389,7 @@
 				E8A5DEED1968E520006A50F6 /* RLMPredicateUtil.m in Sources */,
 				3FDCFEB619F6A8D3005E414A /* RLMSupport.swift in Sources */,
 				E81A1FEE1955FE0100FDED82 /* RLMTestCase.m in Sources */,
+				3FBAC0601AE708DC009DC2AA /* KVOTests.mm in Sources */,
 				028481EF19CD032C0097A416 /* RLMTestObjects.m in Sources */,
 				0207AB89195DFA15007EFB12 /* SchemaTests.mm in Sources */,
 				E81A20021955FE0100FDED82 /* TransactionTests.m in Sources */,

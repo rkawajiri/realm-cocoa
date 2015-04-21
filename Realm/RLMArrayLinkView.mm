@@ -195,6 +195,10 @@ static void changeArray(__unsafe_unretained RLMArrayLinkView *const ar, NSKeyVal
     });
 }
 
+- (void)addObjectsFromArray:(NSArray *)array {
+    [self addObjects:array];
+}
+
 - (void)removeAllObjects {
     RLMLinkViewArrayValidateInWriteTransaction(self);
 
