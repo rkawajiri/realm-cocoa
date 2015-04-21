@@ -355,6 +355,11 @@ RLM_ARRAY_TYPE(PrimaryIntObject);
 
     // nested objects should work
     XCTAssertNoThrow([[OwnerObject alloc] initWithObject:(@[@"Alex", dogExt])], @"Should not throw");
+
+    dogExt.dogName = nil;
+    dogExt.breed = nil;
+    dog = [[DogObject alloc] initWithObject:dogExt];
+    XCTAssertNil(dog.dogName);
 }
 
 -(void)testObjectInitWithObjectLiterals {
@@ -455,6 +460,12 @@ RLM_ARRAY_TYPE(PrimaryIntObject);
     [realm commitWriteTransaction];
     
     XCTAssertEqualObjects(obj0[@"name"], @"newName",  @"Name should be newName");
+
+    [realm beginWriteTransaction];
+    obj0[@"name"] = nil;
+    [realm commitWriteTransaction];
+
+    XCTAssertNil(obj0[@"name"]);
 }
 
 - (void)testDataTypes
