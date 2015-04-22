@@ -764,7 +764,10 @@ public:
         append_link_list_change(NSKeyValueChangeRemoval, index);
         return true;
     }
-    bool link_list_clear() { return true; }
+    bool link_list_clear() {
+        // needs to do stuff
+        return true;
+    }
 
     bool link_list_move(size_t, size_t) { return true; }
 

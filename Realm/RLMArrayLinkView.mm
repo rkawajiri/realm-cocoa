@@ -89,15 +89,16 @@ static void changeArray(__unsafe_unretained RLMArrayLinkView *const ar, NSKeyVal
     RLMDidChange(ar->_parentObject, ar->_key, kind, is);
 }
 
-static void changeArray(__unsafe_unretained RLMArrayLinkView *const ar, NSKeyValueChange kind, NSIndexSet *index, dispatch_block_t f) {
+static void changeArray(__unsafe_unretained RLMArrayLinkView *const ar, NSKeyValueChange kind, NSRange range, dispatch_block_t f) {
     if (ar->_parentObject->_objectSchema->_observers.empty()) {
         f();
         return;
     }
 
-    RLMWillChange(ar->_parentObject, ar->_key, kind, index);
+    NSIndexSet *is = [NSIndexSet indexSetWithIndexesInRange:range];
+    RLMWillChange(ar->_parentObject, ar->_key, kind, is);
     f();
-    RLMDidChange(ar->_parentObject, ar->_key, kind, index);
+    RLMDidChange(ar->_parentObject, ar->_key, kind, is);
 }
 
 //
@@ -196,13 +197,24 @@ static void changeArray(__unsafe_unretained RLMArrayLinkView *const ar, NSKeyVal
 }
 
 - (void)addObjectsFromArray:(NSArray *)array {
-    [self addObjects:array];
+    RLMLinkViewArrayValidateInWriteTransaction(self);
+
+    changeArray(self, NSKeyValueChangeInsertion, NSMakeRange(_backingLinkView->size(), array.count), ^{
+        for (RLMObject *obj in array) {
+            RLMValidateObjectClass(obj, _objectClassName);
+            if (obj->_realm != _realm) {
+                [_realm addObject:obj];
+            }
+
+            _backingLinkView->add(obj->_row.get_index());
+        }
+    });
 }
 
 - (void)removeAllObjects {
     RLMLinkViewArrayValidateInWriteTransaction(self);
 
-    changeArray(self, NSKeyValueChangeRemoval, [NSIndexSet indexSetWithIndexesInRange:NSMakeRange(0, _backingLinkView->size())], ^{
+    changeArray(self, NSKeyValueChangeRemoval, NSMakeRange(0, _backingLinkView->size()), ^{
         _backingLinkView->clear();
     });
 }
@@ -267,7 +279,7 @@ static void changeArray(__unsafe_unretained RLMArrayLinkView *const ar, NSKeyVal
     RLMLinkViewArrayValidateInWriteTransaction(self);
 
     // delete all target rows from the realm
-    changeArray(self, NSKeyValueChangeRemoval, [NSIndexSet indexSetWithIndexesInRange:NSMakeRange(0, _backingLinkView->size())], ^{
+    changeArray(self, NSKeyValueChangeRemoval, NSMakeRange(0, _backingLinkView->size()), ^{
         _backingLinkView->remove_all_target_rows();
     });
 }
