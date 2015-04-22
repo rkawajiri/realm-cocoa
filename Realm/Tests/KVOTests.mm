@@ -564,6 +564,14 @@ public:
         XCTAssertEqualObjects(note->change[NSKeyValueChangeIndexesKey], [NSIndexSet indexSetWithIndex:0]);
     }
 
+    // We deliberately diverge from NSMutableArray for `removeAllObjects` and
+    // `addObjectsFromArray:`, because generating a separate notification for
+    // each object added or removed is needlessly pessimal.
+    if ([obj.arrayCol isKindOfClass:[NSArray class]]) {
+        XCTAssertEqual(4U, r.notifications.size());
+        return;
+    }
+
     [mutator addObjectsFromArray:@[obj, obj]];
     if (KVONotification *note = AssertNotification(r, 4U)) {
         XCTAssertEqual([note->change[NSKeyValueChangeKindKey] intValue], NSKeyValueChangeInsertion);
