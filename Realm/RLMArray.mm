@@ -182,6 +182,12 @@ static void RLMValidateMatchingObjectType(RLMArray *array, RLMObject *object) {
     });
 }
 
+- (void)removeObjectsAtIndexes:(NSIndexSet *)indexes {
+    changeArray(self, NSKeyValueChangeRemoval, indexes, ^{
+        [_backingArray removeObjectsAtIndexes:indexes];
+    });
+}
+
 - (void)replaceObjectAtIndex:(NSUInteger)index withObject:(id)anObject {
     RLMValidateMatchingObjectType(self, anObject);
     changeArray(self, NSKeyValueChangeReplacement, index, ^{

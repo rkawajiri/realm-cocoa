@@ -225,6 +225,19 @@ static void changeArray(__unsafe_unretained RLMArrayLinkView *const ar, NSKeyVal
     });
 }
 
+- (void)removeObjectsAtIndexes:(NSIndexSet *)indexes {
+    RLMLinkViewArrayValidateInWriteTransaction(self);
+
+    changeArray(self, NSKeyValueChangeRemoval, indexes, ^{
+        for (NSUInteger index = [indexes lastIndex]; index != NSNotFound; index = [indexes indexLessThanIndex:index]) {
+            if (index >= _backingLinkView->size()) {
+                @throw RLMException(@"Trying to remove object at invalid index");
+            }
+            _backingLinkView->remove(index);
+        }
+    });
+}
+
 - (void)addObjectsFromArray:(NSArray *)array {
     RLMLinkViewArrayValidateInWriteTransaction(self);
 
