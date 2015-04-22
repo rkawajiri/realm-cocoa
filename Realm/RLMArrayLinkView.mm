@@ -101,6 +101,17 @@ static void changeArray(__unsafe_unretained RLMArrayLinkView *const ar, NSKeyVal
     RLMDidChange(ar->_parentObject, ar->_key, kind, is);
 }
 
+static void changeArray(__unsafe_unretained RLMArrayLinkView *const ar, NSKeyValueChange kind, NSIndexSet *is, dispatch_block_t f) {
+    if (ar->_parentObject->_objectSchema->_observers.empty()) {
+        f();
+        return;
+    }
+
+    RLMWillChange(ar->_parentObject, ar->_key, kind, is);
+    f();
+    RLMDidChange(ar->_parentObject, ar->_key, kind, is);
+}
+
 //
 // public method implementations
 //
@@ -181,6 +192,24 @@ static void changeArray(__unsafe_unretained RLMArrayLinkView *const ar, NSKeyVal
 
     changeArray(self, NSKeyValueChangeInsertion, index, ^{
         _backingLinkView->insert(index, object->_row.get_index());
+    });
+}
+
+- (void)insertObjects:(id<NSFastEnumeration>)objects atIndexes:(NSIndexSet *)indexes {
+    RLMLinkViewArrayValidateInWriteTransaction(self);
+
+    changeArray(self, NSKeyValueChangeInsertion, indexes, ^{
+        NSUInteger index = [indexes firstIndex];
+        for (RLMObject *obj in objects) {
+            if (index > _backingLinkView->size()) {
+                @throw RLMException(@"Trying to insert object at invalid index");
+            }
+            if (obj->_realm != _realm) {
+                [_realm addObject:obj];
+            }
+            _backingLinkView->insert(index, obj->_row.get_index());
+            index = [indexes indexGreaterThanIndex:index];
+        }
     });
 }
 

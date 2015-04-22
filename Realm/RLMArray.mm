@@ -33,8 +33,7 @@
     NSMutableArray *_backingArray;
 }
 
-static void changeArray(__unsafe_unretained RLMArray *const ar, NSKeyValueChange kind, NSUInteger index, dispatch_block_t f) {
-    NSIndexSet *is = [NSIndexSet indexSetWithIndex:index];
+static void changeArray(__unsafe_unretained RLMArray *const ar, NSKeyValueChange kind, NSIndexSet *is, dispatch_block_t f) {
     if (!ar->_backingArray) {
         ar->_backingArray = [NSMutableArray new];
     }
@@ -43,14 +42,12 @@ static void changeArray(__unsafe_unretained RLMArray *const ar, NSKeyValueChange
     [ar->_parentObject didChange:kind valuesAtIndexes:is forKey:ar->_key];
 }
 
+static void changeArray(__unsafe_unretained RLMArray *const ar, NSKeyValueChange kind, NSUInteger index, dispatch_block_t f) {
+    changeArray(ar, kind, [NSIndexSet indexSetWithIndex:index], f);
+}
+
 static void changeArray(__unsafe_unretained RLMArray *const ar, NSKeyValueChange kind, NSRange index, dispatch_block_t f) {
-    NSIndexSet *is = [NSIndexSet indexSetWithIndexesInRange:index];
-    if (!ar->_backingArray) {
-        ar->_backingArray = [NSMutableArray new];
-    }
-    [ar->_parentObject willChange:kind valuesAtIndexes:is forKey:ar->_key];
-    f();
-    [ar->_parentObject didChange:kind valuesAtIndexes:is forKey:ar->_key];
+    changeArray(ar, kind, [NSIndexSet indexSetWithIndexesInRange:index], f);
 }
 
 - (instancetype)initWithObjectClassName:(NSString *)objectClassName
@@ -165,6 +162,17 @@ static void RLMValidateMatchingObjectType(RLMArray *array, RLMObject *object) {
     RLMValidateMatchingObjectType(self, anObject);
     changeArray(self, NSKeyValueChangeInsertion, index, ^{
         [_backingArray insertObject:anObject atIndex:index];
+    });
+}
+
+- (void)insertObjects:(id<NSFastEnumeration>)objects atIndexes:(NSIndexSet *)indexes {
+    changeArray(self, NSKeyValueChangeInsertion, indexes, ^{
+        NSUInteger currentIndex = [indexes firstIndex];
+        for (RLMObject *obj in objects) {
+            RLMValidateMatchingObjectType(self, obj);
+            [_backingArray insertObject:obj atIndex:currentIndex];
+            currentIndex = [indexes indexGreaterThanIndex:currentIndex];
+        }
     });
 }
 

@@ -540,57 +540,45 @@ public:
 
     id mutator = [obj mutableArrayValueForKey:@"arrayCol"];
 
-    [mutator addObject:obj];
-    if (KVONotification *note = AssertNotification(r, 0U)) {
-        XCTAssertEqual([note->change[NSKeyValueChangeKindKey] intValue], NSKeyValueChangeInsertion);
-        XCTAssertEqualObjects(note->change[NSKeyValueChangeIndexesKey], [NSIndexSet indexSetWithIndex:0]);
+#define AssertIndexChange(kind, indexes) \
+    if (KVONotification *note = AssertNotification(r, 0U)) { \
+        XCTAssertEqual([note->change[NSKeyValueChangeKindKey] intValue], kind); \
+        XCTAssertEqualObjects(note->change[NSKeyValueChangeIndexesKey], indexes); \
+        r.notifications.pop_back(); \
+        XCTAssertTrue(r.notifications.empty()); \
     }
 
     [mutator addObject:obj];
-    if (KVONotification *note = AssertNotification(r, 1U)) {
-        XCTAssertEqual([note->change[NSKeyValueChangeKindKey] intValue], NSKeyValueChangeInsertion);
-        XCTAssertEqualObjects(note->change[NSKeyValueChangeIndexesKey], [NSIndexSet indexSetWithIndex:1]);
-    }
+    AssertIndexChange(NSKeyValueChangeInsertion, [NSIndexSet indexSetWithIndex:0]);
+
+    [mutator addObject:obj];
+    AssertIndexChange(NSKeyValueChangeInsertion, [NSIndexSet indexSetWithIndex:1]);
 
     [mutator removeObjectAtIndex:0];
-    if (KVONotification *note = AssertNotification(r, 2U)) {
-        XCTAssertEqual([note->change[NSKeyValueChangeKindKey] intValue], NSKeyValueChangeRemoval);
-        XCTAssertEqualObjects(note->change[NSKeyValueChangeIndexesKey], [NSIndexSet indexSetWithIndex:0]);
-    }
+    AssertIndexChange(NSKeyValueChangeRemoval, [NSIndexSet indexSetWithIndex:0]);
 
     [mutator replaceObjectAtIndex:0 withObject:obj];
-    if (KVONotification *note = AssertNotification(r, 3U)) {
-        XCTAssertEqual([note->change[NSKeyValueChangeKindKey] intValue], NSKeyValueChangeReplacement);
-        XCTAssertEqualObjects(note->change[NSKeyValueChangeIndexesKey], [NSIndexSet indexSetWithIndex:0]);
-    }
+    AssertIndexChange(NSKeyValueChangeReplacement, [NSIndexSet indexSetWithIndex:0]);
+
+    NSMutableIndexSet *indexes = [NSMutableIndexSet new];
+    [indexes addIndex:0];
+    [indexes addIndex:2];
+    [mutator insertObjects:@[obj, obj] atIndexes:indexes];
+    AssertIndexChange(NSKeyValueChangeInsertion, indexes);
 
     // We deliberately diverge from NSMutableArray for `removeAllObjects` and
     // `addObjectsFromArray:`, because generating a separate notification for
     // each object added or removed is needlessly pessimal.
-    if ([obj.arrayCol isKindOfClass:[NSArray class]]) {
-        XCTAssertEqual(4U, r.notifications.size());
-        return;
-    }
+    if (![obj.arrayCol isKindOfClass:[NSArray class]]) {
+        [mutator addObjectsFromArray:@[obj, obj]];
+        AssertIndexChange(NSKeyValueChangeInsertion, [NSIndexSet indexSetWithIndexesInRange:NSMakeRange(3, 2)]);
 
-    [mutator addObjectsFromArray:@[obj, obj]];
-    if (KVONotification *note = AssertNotification(r, 4U)) {
-        XCTAssertEqual([note->change[NSKeyValueChangeKindKey] intValue], NSKeyValueChangeInsertion);
-        XCTAssertEqualObjects(note->change[NSKeyValueChangeIndexesKey], [NSIndexSet indexSetWithIndexesInRange:NSMakeRange(1, 2)]);
-    }
+        [mutator removeLastObject];
+        AssertIndexChange(NSKeyValueChangeRemoval, [NSIndexSet indexSetWithIndex:4]);
 
-    [mutator removeLastObject];
-    if (KVONotification *note = AssertNotification(r, 5U)) {
-        XCTAssertEqual([note->change[NSKeyValueChangeKindKey] intValue], NSKeyValueChangeRemoval);
-        XCTAssertEqualObjects(note->change[NSKeyValueChangeIndexesKey], [NSIndexSet indexSetWithIndex:2]);
+        [mutator removeAllObjects];
+        AssertIndexChange(NSKeyValueChangeRemoval, [NSIndexSet indexSetWithIndexesInRange:NSMakeRange(0, 4)]);
     }
-
-    [mutator removeAllObjects];
-    if (KVONotification *note = AssertNotification(r, 6U)) {
-        XCTAssertEqual([note->change[NSKeyValueChangeKindKey] intValue], NSKeyValueChangeRemoval);
-        XCTAssertEqualObjects(note->change[NSKeyValueChangeIndexesKey], [NSIndexSet indexSetWithIndexesInRange:NSMakeRange(0, 2)]);
-    }
-
-    XCTAssertEqual(7U, r.notifications.size());
 }
 
 - (void)testIgnoredProperty {
