@@ -236,10 +236,20 @@ const NSUInteger RLMDescriptionMaxDepth = 5;
     return [super mutableArrayValueForKey:key];
 }
 
-static bool keyPathIsProperty(NSString *keyPath, RLMObjectSchema *objectSchema) {
+static NSString *propertyKeyPath(NSString *keyPath, RLMObjectSchema *objectSchema) {
+    if ([keyPath isEqualToString:@"invalidated"])
+        return keyPath;
+
     NSUInteger sep = [keyPath rangeOfString:@"."].location;
     NSString *key = sep == NSNotFound ? keyPath : [keyPath substringToIndex:sep];
-    return objectSchema[key] || [key isEqualToString:@"invalidated"];
+    RLMProperty *prop = objectSchema[key];
+    if (!prop)
+        return nil;
+    if (prop.type != RLMPropertyTypeArray)
+        return keyPath;
+    if (sep != NSNotFound && [[keyPath substringFromIndex:sep + 1] isEqualToString:@"invalidated"])
+        return @"invalidated";
+    return keyPath;
 }
 
 static RLMObservable *getObservable(RLMObjectBase *obj) {
@@ -264,17 +274,19 @@ static RLMObservable *getObservable(RLMObjectBase *obj) {
          forKeyPath:(NSString *)keyPath
             options:(NSKeyValueObservingOptions)options
             context:(void *)context {
-    if (!keyPathIsProperty(keyPath, _objectSchema)) {
+    NSString *key = propertyKeyPath(keyPath, _objectSchema);
+    if (!key) {
         [super addObserver:observer forKeyPath:keyPath options:options context:context];
         return;
     }
 
-    [getObservable(self) addObserver:observer forKeyPath:keyPath options:options context:context];
+    [getObservable(self) addObserver:observer forKeyPath:key options:options context:context];
 }
 
 - (void)removeObserver:(NSObject *)observer forKeyPath:(NSString *)keyPath {
-    if (keyPathIsProperty(keyPath, _objectSchema)) {
-        [getObservable(self) removeObserver:observer forKeyPath:keyPath];
+    NSString *key = propertyKeyPath(keyPath, _objectSchema);
+    if (key) {
+        [getObservable(self) removeObserver:observer forKeyPath:key];
     }
     else {
         [super removeObserver:observer forKeyPath:keyPath];
@@ -282,8 +294,9 @@ static RLMObservable *getObservable(RLMObjectBase *obj) {
 }
 
 - (void)removeObserver:(NSObject *)observer forKeyPath:(NSString *)keyPath context:(void *)context {
-    if (keyPathIsProperty(keyPath, _objectSchema)) {
-        [getObservable(self) removeObserver:observer forKeyPath:keyPath context:context];
+    NSString *key = propertyKeyPath(keyPath, _objectSchema);
+    if (key) {
+        [getObservable(self) removeObserver:observer forKeyPath:key context:context];
     }
     else {
         [super removeObserver:observer forKeyPath:keyPath context:context];
@@ -527,13 +540,15 @@ void RLMInvalidateObject(RLMObjectBase *obj, dispatch_block_t block) {
         }
     }
 
-    RLMObservable *o = it == end ? nil : *it;
-    [o willChangeValueForKey:@"invalidated"];
-    block();
-    [o didChangeValueForKey:@"invalidated"];
-
-    if (o) {
-        iter_swap(it, prev(observers.end()));
-        observers.pop_back();
+    if (it == end) {
+        block();
+        return;
     }
+
+    [*it willChangeValueForKey:@"invalidated"];
+    block();
+    [*it didChangeValueForKey:@"invalidated"];
+
+    iter_swap(it, prev(observers.end()));
+    observers.pop_back();
 }
