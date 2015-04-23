@@ -540,14 +540,47 @@ void RLMInvalidateObject(RLMObjectBase *obj, dispatch_block_t block) {
         }
     }
 
+    struct backlink {
+        NSString *property;
+        NSArray *objects;
+    };
+    std::vector<backlink> backlinks;
+
+    for (RLMObjectSchema *objectSchema in obj->_realm.schema.objectSchema) {
+        for (RLMProperty *prop in objectSchema.properties) {
+            if (prop.type == RLMPropertyTypeObject) {
+                if ([prop.objectClassName isEqualToString:[[obj class] className]]) {
+                    NSArray *objects = [(RLMObject *)obj linkingObjectsOfClass:objectSchema.className forProperty:prop.name];
+                    if (objects.count)
+                        backlinks.push_back({prop.name, objects});
+                }
+            }
+        }
+    }
+
+    for (auto& b : backlinks) {
+        for (id o : b.objects)
+            RLMWillChange(o, b.property);
+    }
+
     if (it == end) {
         block();
+
+        for (auto& b : backlinks) {
+            for (id o : b.objects)
+                RLMDidChange(o, b.property);
+        }
         return;
     }
 
     [*it willChangeValueForKey:@"invalidated"];
     block();
     [*it didChangeValueForKey:@"invalidated"];
+
+    for (auto& b : backlinks) {
+        for (id o : b.objects)
+            RLMDidChange(o, b.property);
+    }
 
     iter_swap(it, prev(observers.end()));
     observers.pop_back();

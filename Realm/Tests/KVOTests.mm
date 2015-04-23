@@ -837,7 +837,11 @@ public:
     KVOLinkObject1 *linked = obj.obj;
     KVORecorder r(self, obj, @"obj");
     [self.realm deleteObject:linked];
-    AssertChanged(r, 0U, linked, nil);
+
+    if (KVONotification *note = AssertNotification(r, 0U)) {
+        XCTAssertTrue([note->change[NSKeyValueChangeOldKey] isKindOfClass:[RLMObjectBase class]]);
+        XCTAssertEqualObjects(note->change[NSKeyValueChangeNewKey], NSNull.null);
+    }
 }
 
 - (void)testDeleteObjectInArray {
