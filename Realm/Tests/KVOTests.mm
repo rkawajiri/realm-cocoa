@@ -787,6 +787,14 @@ public:
     // should not crash
 }
 
+- (void)testDeleteParentOfObservedRLMArray {
+    KVOObject *obj = [self createObject];
+    KVORecorder r1(self, obj, @"arrayCol");
+    KVORecorder r2(self, obj, @"arrayCol.invalidated");
+    [self.realm deleteObject:obj];
+    AssertChanged(r2, 0U, @NO, @YES);
+}
+
 - (void)testDeleteAllObjects {
     KVOObject *obj = [self createObject];
     KVORecorder r1(self, obj, @"boolCol");
