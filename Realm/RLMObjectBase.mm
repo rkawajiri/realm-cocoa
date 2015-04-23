@@ -548,7 +548,7 @@ void RLMInvalidateObject(RLMObjectBase *obj, dispatch_block_t block) {
 
     for (RLMObjectSchema *objectSchema in obj->_realm.schema.objectSchema) {
         for (RLMProperty *prop in objectSchema.properties) {
-            if (prop.type == RLMPropertyTypeObject) {
+            if (prop.type == RLMPropertyTypeObject || prop.type == RLMPropertyTypeArray) {
                 if ([prop.objectClassName isEqualToString:[[obj class] className]]) {
                     NSArray *objects = [(RLMObject *)obj linkingObjectsOfClass:objectSchema.className forProperty:prop.name];
                     if (objects.count)
@@ -559,6 +559,7 @@ void RLMInvalidateObject(RLMObjectBase *obj, dispatch_block_t block) {
     }
 
     for (auto& b : backlinks) {
+        // for arrays, need to get the index in the array being removed
         for (id o : b.objects)
             RLMWillChange(o, b.property);
     }

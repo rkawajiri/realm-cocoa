@@ -845,7 +845,12 @@ public:
 }
 
 - (void)testDeleteObjectInArray {
-
+    KVOLinkObject2 *obj = [self createLinkObject];
+    KVOLinkObject1 *linked = obj.obj;
+    [obj.array addObject:linked];
+    KVORecorder r(self, obj, @"array");
+    [self.realm deleteObject:linked];
+    AssertIndexChange(NSKeyValueChangeRemoval, [NSIndexSet indexSetWithIndex:0]);
 }
 
 @end
