@@ -832,6 +832,18 @@ public:
     }
 }
 
+- (void)testDeleteLinkedToObject {
+    KVOLinkObject2 *obj = [self createLinkObject];
+    KVOLinkObject1 *linked = obj.obj;
+    KVORecorder r(self, obj, @"obj");
+    [self.realm deleteObject:linked];
+    AssertChanged(r, 0U, linked, nil);
+}
+
+- (void)testDeleteObjectInArray {
+
+}
+
 @end
 
 // Observing an object backed by the same row as the persisted object being mutated
