@@ -119,6 +119,12 @@ static void changeArray(__unsafe_unretained RLMArray *const ar, NSKeyValueChange
     [self replaceObjectAtIndex:index withObject:newValue];
 }
 
+- (void)addObserver:(__unused NSObject *)observer
+         forKeyPath:(__unused NSString *)keyPath
+            options:(__unused NSKeyValueObservingOptions)options
+            context:(__unused void *)context {
+    @throw RLMException(@"RLMArray cannot be observed directly. Observe via the containing RLMObject.");
+}
 
 //
 // Standalone RLMArray implementation
