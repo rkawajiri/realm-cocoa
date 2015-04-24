@@ -360,7 +360,7 @@ static void changeArray(__unsafe_unretained RLMArrayLinkView *const ar, NSKeyVal
     return RLMConvertNotFound(query.find());
 }
 
-- (NSArray *)objectsAtIndexes:(NSIndexSet *)indexes {
+- (NSArray *)objectsAtIndexes:(__unused NSIndexSet *)indexes {
     return nil;
 }
 

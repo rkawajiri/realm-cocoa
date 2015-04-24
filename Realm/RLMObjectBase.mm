@@ -270,6 +270,44 @@ static RLMObservable *getObservable(RLMObjectBase *obj) {
     return observable;
 }
 
+static void registerBacklinkObserver(RLMObjectBase *obj, RLMObservable *observable, NSString *key) {
+    RLMProperty *prop = obj->_objectSchema[key];
+    if (!prop)
+        return;
+    if (prop.type != RLMPropertyTypeArray && prop.type != RLMPropertyTypeObject)
+        return;
+
+    RLMObjectSchema *dest = obj->_realm.schema[prop.objectClassName];
+    for (auto& backlink : dest->_observedBacklinks) {
+        if (backlink.observable == observable) {
+            ++backlink.refCount;
+            return;
+        }
+    }
+
+    dest->_observedBacklinks.push_back({observable, prop.name, prop.column});
+}
+
+static void unregisterBacklinkObserver(RLMObjectBase *obj, RLMObservable *observable, NSString *key) {
+    RLMProperty *prop = obj->_objectSchema[key];
+    if (!prop)
+        return;
+    if (prop.type != RLMPropertyTypeArray && prop.type != RLMPropertyTypeObject)
+        return;
+
+    RLMObjectSchema *dest = obj->_objectSchema.realm.schema[prop.objectClassName];
+    for (auto it = dest->_observedBacklinks.begin(), end = dest->_observedBacklinks.end(); it != end; ++it) {
+        if (it->observable == observable) {
+            --it->refCount;
+            if (it->refCount == 0) {
+                iter_swap(it, prev(dest->_observedBacklinks.end()));
+                dest->_observedBacklinks.pop_back();
+            }
+            return;
+        }
+    }
+}
+
 - (void)addObserver:(id)observer
          forKeyPath:(NSString *)keyPath
             options:(NSKeyValueObservingOptions)options
@@ -280,13 +318,17 @@ static RLMObservable *getObservable(RLMObjectBase *obj) {
         return;
     }
 
-    [getObservable(self) addObserver:observer forKeyPath:key options:options context:context];
+    RLMObservable *observable = getObservable(self);
+    registerBacklinkObserver(self, observable, key);
+    [observable addObserver:observer forKeyPath:key options:options context:context];
 }
 
 - (void)removeObserver:(NSObject *)observer forKeyPath:(NSString *)keyPath {
     NSString *key = propertyKeyPath(keyPath, _objectSchema);
     if (key) {
-        [getObservable(self) removeObserver:observer forKeyPath:key];
+        RLMObservable *observable = getObservable(self);
+        unregisterBacklinkObserver(self, observable, key);
+        [observable removeObserver:observer forKeyPath:key];
     }
     else {
         [super removeObserver:observer forKeyPath:keyPath];
@@ -296,7 +338,9 @@ static RLMObservable *getObservable(RLMObjectBase *obj) {
 - (void)removeObserver:(NSObject *)observer forKeyPath:(NSString *)keyPath context:(void *)context {
     NSString *key = propertyKeyPath(keyPath, _objectSchema);
     if (key) {
-        [getObservable(self) removeObserver:observer forKeyPath:key context:context];
+        RLMObservable *observable = getObservable(self);
+        unregisterBacklinkObserver(self, observable, key);
+        [observable removeObserver:observer forKeyPath:key context:context];
     }
     else {
         [super removeObserver:observer forKeyPath:keyPath context:context];
@@ -306,9 +350,6 @@ static RLMObservable *getObservable(RLMObjectBase *obj) {
 @end
 
 void RLMWillChange(RLMObjectBase *obj, NSString *key) {
-    // add _unsafe_unretained id obj to obervable, set to self before calling, nil after calling
-    // avoids the temp object and nonsense
-    // but what about RLMRealm refresh? needs refactoring to not need object
     [getObservable(obj) willChangeValueForKey:key];
 }
 
@@ -548,44 +589,35 @@ void RLMInvalidateObject(RLMObjectBase *obj, dispatch_block_t block) {
     };
     std::vector<backlink> backlinks;
 
-    for (RLMObjectSchema *objectSchema in obj->_realm.schema.objectSchema) {
-        for (RLMProperty *prop in objectSchema.properties) {
-            if (prop.type != RLMPropertyTypeObject && prop.type != RLMPropertyTypeArray)
-                continue;
-            if (![prop.objectClassName isEqualToString:[[obj class] className]])
-                continue;
-            NSArray *objects = [(RLMObject *)obj linkingObjectsOfClass:objectSchema.className forProperty:prop.name];
-
-            if (prop.type == RLMPropertyTypeObject) {
-                for (id o in objects)
-                    backlinks.push_back({prop.name, prop.type, 0, o});
-            }
-            else {
-                for (id o in objects) {
-                    NSUInteger idx = [[o valueForKey:prop.name] indexOfObject:obj];
-                    if (idx != NSNotFound)
-                        backlinks.push_back({prop.name, prop.type, idx, o});
-                }
-            }
+    for (auto& bl : obj->_objectSchema->_observedBacklinks) {
+        auto table = bl.observable->_row.get_table();
+        if (table->get_column_type(bl.column) == realm::type_Link) {
+            if (table->get_link(bl.column, bl.observable->_row.get_index()) == obj->_row.get_index())
+                backlinks.push_back({bl.propertyName, RLMPropertyTypeObject, 0, bl.observable});
+        }
+        else {
+            auto ndx = table->get_linklist(bl.column, bl.observable->_row.get_index())->find(obj->_row.get_index());
+            if (ndx != realm::not_found)
+                backlinks.push_back({bl.propertyName, RLMPropertyTypeArray, ndx, bl.observable});
         }
     }
 
     for (auto& b : backlinks) {
         if (b.type == RLMPropertyTypeArray) {
-            RLMWillChange(b.object, b.property, NSKeyValueChangeRemoval, [NSIndexSet indexSetWithIndex:b.index]);
+            [b.object willChange:NSKeyValueChangeRemoval valuesAtIndexes:[NSIndexSet indexSetWithIndex:b.index] forKey:b.property];
         }
         else {
-            RLMWillChange(b.object, b.property);
+            [b.object willChangeValueForKey:b.property];
         }
     }
 
     auto didChange = [&] {
         for (auto& b : backlinks) {
             if (b.type == RLMPropertyTypeArray) {
-                RLMDidChange(b.object, b.property, NSKeyValueChangeRemoval, [NSIndexSet indexSetWithIndex:b.index]);
+                [b.object didChange:NSKeyValueChangeRemoval valuesAtIndexes:[NSIndexSet indexSetWithIndex:b.index] forKey:b.property];
             }
             else {
-                RLMDidChange(b.object, b.property);
+                [b.object didChangeValueForKey:b.property];
             }
         }
     };

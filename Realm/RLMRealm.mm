@@ -666,8 +666,8 @@ public:
                 [o.observable willChangeValueForKey:o.key];
             else
                 [o.observable willChange:o.linkview_changes[0].first
-                       valuesAtIndexes:o.linkview_changes[0].second
-                                forKey:o.key];
+                         valuesAtIndexes:o.linkview_changes[0].second
+                                  forKey:o.key];
         }
     }
 

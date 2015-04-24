@@ -34,6 +34,14 @@ namespace realm {
 @interface RLMObjectSchema () {
     @public
     std::vector<__unsafe_unretained RLMObservable *> _observers;
+
+    struct RLMBackLink {
+        __unsafe_unretained RLMObservable *observable;
+        NSString *propertyName;
+        NSUInteger column;
+        int refCount = 1;
+    };
+    std::vector<RLMBackLink> _observedBacklinks;
 }
 @property (nonatomic) realm::Table *table;
 
