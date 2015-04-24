@@ -542,35 +542,57 @@ void RLMInvalidateObject(RLMObjectBase *obj, dispatch_block_t block) {
 
     struct backlink {
         NSString *property;
-        NSArray *objects;
+        RLMPropertyType type;
+        NSUInteger index;
+        id object;
     };
     std::vector<backlink> backlinks;
 
     for (RLMObjectSchema *objectSchema in obj->_realm.schema.objectSchema) {
         for (RLMProperty *prop in objectSchema.properties) {
-            if (prop.type == RLMPropertyTypeObject || prop.type == RLMPropertyTypeArray) {
-                if ([prop.objectClassName isEqualToString:[[obj class] className]]) {
-                    NSArray *objects = [(RLMObject *)obj linkingObjectsOfClass:objectSchema.className forProperty:prop.name];
-                    if (objects.count)
-                        backlinks.push_back({prop.name, objects});
+            if (prop.type != RLMPropertyTypeObject && prop.type != RLMPropertyTypeArray)
+                continue;
+            if (![prop.objectClassName isEqualToString:[[obj class] className]])
+                continue;
+            NSArray *objects = [(RLMObject *)obj linkingObjectsOfClass:objectSchema.className forProperty:prop.name];
+
+            if (prop.type == RLMPropertyTypeObject) {
+                for (id o in objects)
+                    backlinks.push_back({prop.name, prop.type, 0, o});
+            }
+            else {
+                for (id o in objects) {
+                    NSUInteger idx = [[o valueForKey:prop.name] indexOfObject:obj];
+                    if (idx != NSNotFound)
+                        backlinks.push_back({prop.name, prop.type, idx, o});
                 }
             }
         }
     }
 
     for (auto& b : backlinks) {
-        // for arrays, need to get the index in the array being removed
-        for (id o : b.objects)
-            RLMWillChange(o, b.property);
+        if (b.type == RLMPropertyTypeArray) {
+            RLMWillChange(b.object, b.property, NSKeyValueChangeRemoval, [NSIndexSet indexSetWithIndex:b.index]);
+        }
+        else {
+            RLMWillChange(b.object, b.property);
+        }
     }
+
+    auto didChange = [&] {
+        for (auto& b : backlinks) {
+            if (b.type == RLMPropertyTypeArray) {
+                RLMDidChange(b.object, b.property, NSKeyValueChangeRemoval, [NSIndexSet indexSetWithIndex:b.index]);
+            }
+            else {
+                RLMDidChange(b.object, b.property);
+            }
+        }
+    };
 
     if (it == end) {
         block();
-
-        for (auto& b : backlinks) {
-            for (id o : b.objects)
-                RLMDidChange(o, b.property);
-        }
+        didChange();
         return;
     }
 
@@ -578,10 +600,7 @@ void RLMInvalidateObject(RLMObjectBase *obj, dispatch_block_t block) {
     block();
     [*it didChangeValueForKey:@"invalidated"];
 
-    for (auto& b : backlinks) {
-        for (id o : b.objects)
-            RLMDidChange(o, b.property);
-    }
+    didChange();
 
     iter_swap(it, prev(observers.end()));
     observers.pop_back();
