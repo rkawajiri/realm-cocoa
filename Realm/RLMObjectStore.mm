@@ -564,6 +564,30 @@ void RLMDeleteObjectFromRealm(RLMObjectBase *object, RLMRealm *realm) {
 }
 
 void RLMClearTable(RLMObjectSchema *objectSchema) {
+    struct backlink {
+        id observable;
+        NSString *property;
+        NSIndexSet *indexes;
+    };
+    std::vector<backlink> backlinks;
+    for (auto& bl : objectSchema->_observedBacklinks) {
+        auto table = bl.observable->_row.get_table();
+        if (table->get_column_type(bl.column) == realm::type_Link) {
+            if (bl.observable->_row.get_link(bl.column) != realm::npos) {
+                [bl.observable willChangeValueForKey:bl.propertyName];
+                backlinks.push_back({bl.observable, bl.propertyName, nil});
+            }
+        }
+        else {
+            auto list = bl.observable->_row.get_linklist(bl.column);
+            if (list->size() > 0) {
+                auto indexes = [NSIndexSet indexSetWithIndexesInRange:{0, list->size()}];
+                [bl.observable willChange:NSKeyValueChangeRemoval valuesAtIndexes:indexes forKey:bl.propertyName];
+                backlinks.push_back({bl.observable, bl.propertyName, indexes});
+            }
+        }
+    }
+
     for (__unsafe_unretained RLMObservable *observable : objectSchema->_observers) {
         [observable willChangeValueForKey:@"invalidated"];
     }
@@ -571,6 +595,16 @@ void RLMClearTable(RLMObjectSchema *objectSchema) {
     for (__unsafe_unretained RLMObservable *observable : objectSchema->_observers) {
         [observable didChangeValueForKey:@"invalidated"];
     }
+
+    for (auto& bl : backlinks) {
+        if (bl.indexes) {
+            [bl.observable didChange:NSKeyValueChangeRemoval valuesAtIndexes:bl.indexes forKey:bl.property];
+        }
+        else {
+            [bl.observable didChangeValueForKey:bl.property];
+        }
+    }
+
     objectSchema->_observers.clear();
 }
 
