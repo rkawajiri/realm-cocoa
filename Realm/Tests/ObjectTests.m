@@ -205,7 +205,11 @@ RLM_ARRAY_TYPE(PrimaryIntObject);
 }
 @end
 
-@interface PrimaryCompanyObject : CompanyObject
+RLM_ARRAY_TYPE(PrimaryEmployeeObject);
+
+@interface PrimaryCompanyObject : RLMObject
+@property NSString *name;
+@property RLMArray<PrimaryEmployeeObject> *employees;
 @property PrimaryEmployeeObject *intern;
 @end
 
@@ -914,6 +918,20 @@ RLM_ARRAY_TYPE(PrimaryIntObject);
     XCTAssertEqualObjects(@"Samuel", eo.name);
     XCTAssertEqual(YES, eo.hired);
     XCTAssertEqual(19, eo.age);
+
+    [realm beginWriteTransaction];
+    [PrimaryCompanyObject createOrUpdateInRealm:realm withObject:@{
+                                                                   @"name" : @"Realm",
+                                                                   @"employees": @[@{@"name":@"Samuel", @"hired":@NO}],
+                                                                   @"intern" : @{@"name":@"Samuel", @"age":@20},
+                                                                   }];
+    [realm commitWriteTransaction];
+
+    XCTAssertEqual(1U, co.employees.count);
+    XCTAssertEqual(1U, [PrimaryEmployeeObject allObjectsInRealm:realm].count);
+    XCTAssertEqualObjects(@"Samuel", eo.name);
+    XCTAssertEqual(NO, eo.hired);
+    XCTAssertEqual(20, eo.age);
 }
 
 - (void)testCreateInRealmCopiesFromOtherRealm {
