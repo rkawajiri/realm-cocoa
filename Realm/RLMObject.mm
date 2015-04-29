@@ -40,7 +40,7 @@
 }
 
 - (instancetype)initWithObject:(id)object {
-    return [super initWithObject:object schema:RLMSchema.sharedSchema];
+    return [super initWithObject:object schema:RLMSchema.sharedSchema valueToAccessorMapping:[NSMapTable strongToStrongObjectsMapTable]];
 }
 
 + (instancetype)createInDefaultRealmWithObject:(id)object {

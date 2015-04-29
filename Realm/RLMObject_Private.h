@@ -29,7 +29,7 @@
 }
 
 // standalone initializer
-- (instancetype)initWithObject:(id)value schema:(RLMSchema *)schema;
+- (instancetype)initWithObject:(id)value schema:(RLMSchema *)schema valueToAccessorMapping:(NSMapTable *)valueToAccessorMapping;
 
 // live accessor initializer
 - (instancetype)initWithRealm:(__unsafe_unretained RLMRealm *const)realm
