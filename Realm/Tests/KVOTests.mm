@@ -832,11 +832,33 @@ public:
     }
 }
 
-- (void)testDeleteLinkedToObject {
+- (void)testDirectlyDeleteLinkedToObject {
     KVOLinkObject2 *obj = [self createLinkObject];
     KVOLinkObject1 *linked = obj.obj;
     KVORecorder r(self, obj, @"obj");
     [self.realm deleteObject:linked];
+
+    if (KVONotification *note = AssertNotification(r, 0U)) {
+        XCTAssertTrue([note->change[NSKeyValueChangeOldKey] isKindOfClass:[RLMObjectBase class]]);
+        XCTAssertEqualObjects(note->change[NSKeyValueChangeNewKey], NSNull.null);
+    }
+}
+
+- (void)testDeleteLinkedToObjectViaTableClear {
+    KVOLinkObject2 *obj = [self createLinkObject];
+    KVORecorder r(self, obj, @"obj");
+    [self.realm deleteObjects:[KVOLinkObject1 allObjectsInRealm:self.realm]];
+
+    if (KVONotification *note = AssertNotification(r, 0U)) {
+        XCTAssertTrue([note->change[NSKeyValueChangeOldKey] isKindOfClass:[RLMObjectBase class]]);
+        XCTAssertEqualObjects(note->change[NSKeyValueChangeNewKey], NSNull.null);
+    }
+}
+
+- (void)testDeleteLinkedToObjectViaQueryClear {
+    KVOLinkObject2 *obj = [self createLinkObject];
+    KVORecorder r(self, obj, @"obj");
+    [self.realm deleteObjects:[KVOLinkObject1 objectsInRealm:self.realm where:@"obj != nil"]];
 
     if (KVONotification *note = AssertNotification(r, 0U)) {
         XCTAssertTrue([note->change[NSKeyValueChangeOldKey] isKindOfClass:[RLMObjectBase class]]);
