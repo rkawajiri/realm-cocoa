@@ -813,6 +813,15 @@ public:
     // should not crash
 }
 
+- (void)testDeleteQuery {
+    KVOObject *obj = [self createObject];
+    KVORecorder r1(self, obj, @"boolCol");
+    KVORecorder r2(self, obj, @"invalidated");
+    [self.realm deleteObjects:[KVOObject objectsInRealm:self.realm where:@"boolCol = NO"]];
+    AssertChanged(r2, 0U, @NO, @YES);
+    // should not crash
+}
+
 - (void)testClearLinkView {
     // TODO
 }
@@ -866,12 +875,37 @@ public:
     }
 }
 
-- (void)testDeleteObjectInArray {
+- (void)testDirectlyDeleteObjectInArray {
     KVOLinkObject2 *obj = [self createLinkObject];
     KVOLinkObject1 *linked = obj.obj;
     [obj.array addObject:linked];
     KVORecorder r(self, obj, @"array");
     [self.realm deleteObject:linked];
+    AssertIndexChange(NSKeyValueChangeRemoval, [NSIndexSet indexSetWithIndex:0]);
+}
+
+- (void)testDeleteObjectInArrayViaTableClear {
+    KVOLinkObject2 *obj = [self createLinkObject];
+    KVOLinkObject1 *linked = obj.obj;
+    [obj.array addObject:linked];
+    KVORecorder r(self, obj, @"array");
+    [self.realm deleteObjects:[KVOLinkObject1 allObjectsInRealm:self.realm]];
+    AssertIndexChange(NSKeyValueChangeRemoval, [NSIndexSet indexSetWithIndex:0]);
+}
+
+- (void)testDeleteObjectInArrayViaQueryClear {
+    KVOLinkObject2 *obj = [self createLinkObject];
+    [obj.array addObject:obj.obj];
+    KVORecorder r(self, obj, @"array");
+    [self.realm deleteObjects:[KVOLinkObject1 objectsInRealm:self.realm where:@"obj != nil"]];
+    AssertIndexChange(NSKeyValueChangeRemoval, [NSIndexSet indexSetWithIndex:0]);
+}
+
+- (void)testDeleteObjectInArrayViaLinkViewClear {
+    KVOLinkObject2 *obj = [self createLinkObject];
+    [obj.array addObject:obj.obj];
+    KVORecorder r(self, obj, @"array");
+    [self.realm deleteObjects:obj.array];
     AssertIndexChange(NSKeyValueChangeRemoval, [NSIndexSet indexSetWithIndex:0]);
 }
 
